@@ -113,7 +113,7 @@ bool PhPrfDataset::AddTile( const char* pszPartName, GDALAccess eAccessType, int
 {
     GDALProxyPoolDataset*   poTileDataset;
     poTileDataset = new GDALProxyPoolDataset( pszPartName, nWidth, nHeight,
-                                              eAccessType, FALSE );
+                                              eAccessType, TRUE );
 
     if( poTileDataset == NULL )
     {
@@ -145,6 +145,7 @@ bool PhPrfDataset::AddTile( const char* pszPartName, GDALAccess eAccessType, int
             poBand->AddOverview( poTileBand );
         }
     }
+    poTileDataset->Dereference();
     return true;
 }
 
