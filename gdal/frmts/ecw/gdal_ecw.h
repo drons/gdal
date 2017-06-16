@@ -212,17 +212,22 @@ class VSIIOStream : public CNCSJPCIOStream
             }
             CPLDebug( "ECW", "Using filename '%s' for temporary directory determination purposes.", osFilenameUsed.c_str() );
         }
-#ifdef WIN32
+
         if( CSLTestBoolean( CPLGetConfigOption( "GDAL_FILENAME_IS_UTF8", "YES" ) ) )
         {
-            wchar_t       *pwszFilename = CPLRecodeToWChar( osFilenameUsed.c_str(), CPL_ENC_UTF8, CPL_ENC_UCS2 );
-            CNCSError oError;
-            oError = CNCSJPCIOStream::Open( pwszFilename, (bool) bWrite );
-            CPLFree( pwszFilename );
-            return oError;
+                CNCSError oError;
+#if ECWSDK_VERSION < 40
+                char          *pszLocaleFilename = CPLRecode( osFilenameUsed.c_str(), CPL_ENC_UTF8, CPL_ENC_LOCALE );
+                oError = CNCSJPCIOStream::Open( pszLocaleFilename, (bool) bWrite );
+                CPLFree( pszLocaleFilename );
+#else // ECWSDK_VERSION >= 40
+                wchar_t       *pwszFilename = CPLRecodeToWChar( osFilenameUsed.c_str(), CPL_ENC_UTF8, CPL_ENC_UCS2 );
+                oError = CNCSJPCIOStream::Open( pwszFilename, (bool) bWrite );
+                CPLFree( pwszFilename );
+#endif //ECWSDK_VERSION < 40
+                return oError;
         }
         else
-#endif
         {
             return(CNCSJPCIOStream::Open((char *)osFilenameUsed.c_str(),
                                         (bool) bWrite));

@@ -1101,15 +1101,19 @@ CPLErr GDALECWCompressor::Initialize(
     {
         if( fpVSIL == NULL )
         {
-#if ECWSDK_VERSION>=40 && defined(WIN32)
             if( CPLTestBool( CPLGetConfigOption( "GDAL_FILENAME_IS_UTF8", "YES" ) ) )
             {
+#if ECWSDK_VERSION < 40
+                char *pszLocaleFilename = CPLRecode( pszFilename, CPL_ENC_UTF8, CPL_ENC_LOCALE );
+                oError = GetCNCSError(Open( pszLocaleFilename, false, true ));
+                CPLFree( pszLocaleFilename );
+#else // ECWSDK_VERSION >= 40
                 wchar_t *pwszFilename = CPLRecodeToWChar( pszFilename, CPL_ENC_UTF8, CPL_ENC_UCS2 );
                 oError = GetCNCSError(Open( pwszFilename, false, true ));
                 CPLFree( pwszFilename );
+#endif //ECWSDK_VERSION < 40
             }
             else
-#endif
             {
                 oError = GetCNCSError(Open( (char *) pszFilename, false, true ));
             }
