@@ -1101,7 +1101,7 @@ CPLErr GDALECWCompressor::Initialize(
     {
         if( fpVSIL == NULL )
         {
-#if ECWSDK_VERSION>=40 && defined(WIN32)
+#if defined(WIN32)
             if( CPLTestBool( CPLGetConfigOption( "GDAL_FILENAME_IS_UTF8", "YES" ) ) )
             {
                 wchar_t *pwszFilename = CPLRecodeToWChar( pszFilename, CPL_ENC_UTF8, CPL_ENC_UCS2 );
