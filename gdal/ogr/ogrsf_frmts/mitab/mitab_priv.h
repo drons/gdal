@@ -1645,6 +1645,7 @@ class TABDATFile
     GBool       m_bWriteEOF;
 
     int         m_bUpdated;
+    CPLString   m_osEncoding;
 
     int         InitWriteHeader();
     int         WriteHeader();
@@ -1654,7 +1655,7 @@ class TABDATFile
     char        m_szBuffer[256];
 
    public:
-    TABDATFile();
+    explicit TABDATFile( const char* pszEncoding );
     ~TABDATFile();
 
     int         Open(const char *pszFname, const char* pszAccess,
@@ -1728,6 +1729,9 @@ class TABDATFile
     int         WriteDateTimeField(int nYear, int nMonth, int nDay,
                                    int nHour, int nMinute, int nSecond, int nMS,
                                    TABINDFile *poINDFile, int nIndexNo);
+
+    const CPLString& GetEncoding() const;
+    void SetEncoding( const CPLString& );
 
 #ifdef DEBUG
     void Dump(FILE *fpOut = NULL);
@@ -1821,7 +1825,7 @@ class TABRelation
 class MIDDATAFile
 {
    public:
-      MIDDATAFile();
+      explicit MIDDATAFile( const char* pszEncoding );
      ~MIDDATAFile();
 
      int         Open(const char *pszFname, const char *pszAccess);
@@ -1846,6 +1850,9 @@ class MIDDATAFile
      void SetEof(GBool bEof);
      GBool GetEof();
 
+    const CPLString& GetEncoding() const;
+    void SetEncoding( const CPLString& );
+
      private:
        VSILFILE *m_fp;
        const char *m_pszDelimiter;
@@ -1862,6 +1869,7 @@ class MIDDATAFile
        double      m_dfXDisplacement;
        double      m_dfYDisplacement;
        GBool       m_bEof;
+       CPLString   m_osEncoding;
 };
 
 /*=====================================================================
