@@ -1180,6 +1180,8 @@ GDALDataset *RMFDataset::Open( GDALOpenInfo * poOpenInfo )
         poParent->poOvrDatasets.push_back( poCurrentLayer );
     }
 
+    CPLErrorReset();
+
     return poDS;
 }
 
