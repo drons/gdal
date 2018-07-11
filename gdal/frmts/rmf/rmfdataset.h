@@ -34,6 +34,7 @@
 
 #define RMF_HEADER_SIZE         320
 #define RMF_EXT_HEADER_SIZE     320
+#define RMF_EXT_GEO_HEADER_SIZE 96
 
 #define RMF_COMPRESSION_NONE    0
 #define RMF_COMPRESSION_LZW     1
@@ -132,7 +133,22 @@ typedef struct
     GInt32      nEllipsoid;
     GInt32      nDatum;
     GInt32      nZone;
+    GUInt32     nExtGeoOffset;
+    GUInt32     nExtGeoSize;
 } RMFExtHeader;
+
+/************************************************************************/
+/*                            RMFExtGeoTransformHeader                  */
+/************************************************************************/
+
+typedef struct
+{
+    char        byGeoSignature[RMF_SIGNATURE_SIZE]; //0x7E7E7E7E
+    GUInt32     nSize;
+    GInt32      iGeoType;
+#define RMF_EXT_GEOTRANSFORM_LEN 6
+    double      adfGeoTransform[RMF_EXT_GEOTRANSFORM_LEN];
+} RMFExtGeoHeader;
 
 /************************************************************************/
 /*                            RMFCompressionJob                         */
@@ -192,6 +208,7 @@ class RMFDataset final: public GDALDataset
 private:
     RMFHeader       sHeader;
     RMFExtHeader    sExtHeader;
+    RMFExtGeoHeader sExtGeoHeader;
     RMFType         eRMFType;
     GUInt32         nXTiles;
     GUInt32         nYTiles;

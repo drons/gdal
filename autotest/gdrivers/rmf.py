@@ -29,6 +29,7 @@
 ###############################################################################
 
 import os
+import shutil
 import sys
 
 sys.path.append('../pymod')
@@ -864,6 +865,69 @@ def rmf_32c():
 
     return res
 
+
+###############################################################################
+# Check six elements in geotransform matrix
+
+def rmf_33a():
+
+    drv = gdal.GetDriverByName('RMF')
+    if drv is None:
+        return 'skip'
+
+    gt1 = (1, 2, 3, 4, 5, 6)
+    gt2 = (6, 5, 4, 3, 2, 1)
+    ds_name = 'tmp/rmf_33a.rsw'
+
+    ds = drv.Create(ds_name, 8, 8, 1, gdal.GDT_Byte)
+    ds.GetRasterBand(1).Fill(77)
+    ds.SetGeoTransform(gt1)
+    ds = None
+
+    tst = gdaltest.GDALTest('rmf', '../' + ds_name, 1, 752)
+    res = tst.testOpen(check_gt=gt1)
+
+    ds = gdal.Open(ds_name, gdal.GA_Update)
+
+    if ds is None:
+        gdaltest.post_reason('Failed to open test dataset.')
+        return 'fail'
+
+    ds.SetGeoTransform(gt2)
+    ds = None
+
+    tst = gdaltest.GDALTest('rmf', '../' + ds_name, 1, 752)
+    res = tst.testOpen(check_gt=gt2)
+
+    os.remove(ds_name)
+
+    return res
+
+# Write 6 element transform to file without geoheader
+def rmf_33b():
+
+    gt = (1, 2, 3, 4, 5, 6)
+    ds_name = 'tmp/rmf_33b.rsw'
+
+    shutil.copyfile('data/byte.rsw', ds_name)
+
+    ds = gdal.Open(ds_name, gdal.GA_Update)
+
+    if ds is None:
+        gdaltest.post_reason('Failed to open test dataset.')
+        return 'fail'
+
+    ds.SetGeoTransform(gt)
+    ds = None
+
+    tst = gdaltest.GDALTest('rmf', '../' + ds_name, 1, 4672)
+    res = tst.testOpen(check_gt=gt)
+
+    os.remove(ds_name)
+
+    return res
+
+
 ###############################################################################
 
 
@@ -910,6 +974,8 @@ gdaltest_list = [
     rmf_32a,
     rmf_32b,
     rmf_32c,
+    rmf_33a,
+    rmf_33b,
 ]
 
 if __name__ == '__main__':

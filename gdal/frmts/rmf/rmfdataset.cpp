@@ -42,6 +42,7 @@ constexpr int RMF_DEFAULT_BLOCKYSIZE = 256;
 static const char RMF_SigRSW[] = { 'R', 'S', 'W', '\0' };
 static const char RMF_SigRSW_BE[] = { '\0', 'W', 'S', 'R' };
 static const char RMF_SigMTW[] = { 'M', 'T', 'W', '\0' };
+static const char RMF_SigExtGeo[] = {0x7E, 0x7E, 0x7E, 0x7E};
 
 static const char RMF_UnitsEmpty[] = "";
 static const char RMF_UnitsM[] = "m";
@@ -51,6 +52,9 @@ static const char RMF_UnitsMM[] = "mm";
 
 constexpr double RMF_DEFAULT_SCALE = 10000.0;
 constexpr double RMF_DEFAULT_RESOLUTION = 100.0;
+
+constexpr GInt32 RMF_EXT_GEOTRANSFORM_NONE = 0;
+constexpr GInt32 RMF_EXT_GEOTRANSFORM_MATRIX = 2;
 
 /* -------------------------------------------------------------------- */
 /*  Note: Due to the fact that in the early versions of RMF             */
@@ -926,6 +930,7 @@ RMFDataset::RMFDataset() :
     adfGeoTransform[5] = 1.0;
     memset( &sHeader, 0, sizeof(sHeader) );
     memset( &sExtHeader, 0, sizeof(sExtHeader) );
+    memset( &sExtGeoHeader, 0, sizeof(sExtGeoHeader) );
 }
 
 /************************************************************************/
@@ -986,6 +991,19 @@ CPLErr RMFDataset::SetGeoTransform( double * padfTransform )
     sHeader.dfLLX = adfGeoTransform[0];
     sHeader.dfLLY = adfGeoTransform[3] - nRasterYSize * sHeader.dfPixelSize;
     sHeader.iGeorefFlag = 1;
+
+    if(padfTransform[2] != 0 || padfTransform[4] != 0)
+    {
+        memcpy(sExtGeoHeader.adfGeoTransform, padfTransform,
+               sizeof(double) * RMF_EXT_GEOTRANSFORM_LEN);
+        sExtGeoHeader.iGeoType = RMF_EXT_GEOTRANSFORM_MATRIX;
+    }
+    else
+    {
+        memset(sExtGeoHeader.adfGeoTransform, 0,
+               sizeof(double) * RMF_EXT_GEOTRANSFORM_LEN);
+        sExtGeoHeader.iGeoType = RMF_EXT_GEOTRANSFORM_NONE;
+    }
 
     bHeaderDirty = true;
 
@@ -1078,6 +1096,30 @@ do {                                                    \
     memcpy( (ptr) + (offset), &dfDouble, 8 );           \
 } while( false );
 
+/* -------------------------------------------------------------------- */
+/*  Setup ext headers.                                                  */
+/* -------------------------------------------------------------------- */
+
+    if(sExtGeoHeader.iGeoType != RMF_EXT_GEOTRANSFORM_NONE &&
+       (sExtHeader.nExtGeoSize < RMF_EXT_GEO_HEADER_SIZE ||
+        sExtGeoHeader.nSize < RMF_EXT_GEO_HEADER_SIZE))
+    {
+        vsi_l_offset    iOffset(GetLastOffset());
+        if(sHeader.nExtHdrSize < RMF_EXT_HEADER_SIZE)
+        {
+            sHeader.nExtHdrOffset = GetRMFOffset(iOffset, &iOffset);
+            sHeader.nExtHdrSize = RMF_EXT_HEADER_SIZE;
+            iOffset += RMF_EXT_HEADER_SIZE;
+        }
+
+        sExtHeader.nExtGeoOffset = GetRMFOffset(iOffset, &iOffset);
+        sExtHeader.nExtGeoSize = RMF_EXT_GEO_HEADER_SIZE;
+
+        memcpy(sExtGeoHeader.byGeoSignature, RMF_SigExtGeo,
+               RMF_SIGNATURE_SIZE);
+        sExtGeoHeader.nSize = RMF_EXT_GEO_HEADER_SIZE;
+    }
+
     vsi_l_offset    iCurrentFileSize( GetLastOffset() );
     sHeader.nFileSize0 = GetRMFOffset( iCurrentFileSize, &iCurrentFileSize );
     sHeader.nSize = sHeader.nFileSize0 - GetRMFOffset( nHeaderOffset, nullptr );
@@ -1158,11 +1200,41 @@ do {                                                    \
         RMF_WRITE_LONG( pabyExtHeader, sExtHeader.nEllipsoid, 24 );
         RMF_WRITE_LONG( pabyExtHeader, sExtHeader.nDatum, 32 );
         RMF_WRITE_LONG( pabyExtHeader, sExtHeader.nZone, 36 );
+        RMF_WRITE_LONG( pabyExtHeader, sExtHeader.nExtGeoOffset, 312 );
+        RMF_WRITE_LONG( pabyExtHeader, sExtHeader.nExtGeoSize, 316 );
 
         VSIFSeekL( fp, GetFileOffset( sHeader.nExtHdrOffset ), SEEK_SET );
         VSIFWriteL( pabyExtHeader, 1, sHeader.nExtHdrSize, fp );
 
         CPLFree( pabyExtHeader );
+    }
+
+/* -------------------------------------------------------------------- */
+/*  Write out the extended geotransform header.                                      */
+/* -------------------------------------------------------------------- */
+    if(sExtHeader.nExtGeoOffset && sExtHeader.nExtGeoSize &&
+       sExtGeoHeader.nSize == sExtHeader.nExtGeoSize &&
+       sExtGeoHeader.iGeoType == RMF_EXT_GEOTRANSFORM_MATRIX)
+    {
+        GByte *pabyGeoHeader = reinterpret_cast<GByte *>(
+            CPLCalloc(sExtGeoHeader.nSize, 1));
+
+        memcpy(pabyGeoHeader, sExtGeoHeader.byGeoSignature,
+               RMF_SIGNATURE_SIZE);
+        RMF_WRITE_LONG(pabyGeoHeader, sExtGeoHeader.nSize, 4);
+        RMF_WRITE_LONG(pabyGeoHeader, sExtGeoHeader.iGeoType, 12);
+
+        for(size_t n = 0; n != RMF_EXT_GEOTRANSFORM_LEN; ++n)
+        {
+            RMF_WRITE_DOUBLE(pabyGeoHeader,
+                             sExtGeoHeader.adfGeoTransform[n],
+                             48 + n * sizeof(double));
+        }
+
+        VSIFSeekL(fp, GetFileOffset( sExtHeader.nExtGeoOffset ), SEEK_SET);
+        VSIFWriteL(pabyGeoHeader, 1, sExtHeader.nExtGeoSize, fp);
+
+        CPLFree(pabyGeoHeader);
     }
 
 #undef RMF_WRITE_DOUBLE
@@ -1491,7 +1563,58 @@ do {                                                                    \
             RMF_READ_LONG( pabyExtHeader, poDS->sExtHeader.nZone, 36 );
         }
 
+        if( poDS->sHeader.nExtHdrSize >= 316 + 4 )
+        {
+            RMF_READ_LONG( pabyExtHeader, poDS->sExtHeader.nExtGeoOffset, 312 );
+            RMF_READ_LONG( pabyExtHeader, poDS->sExtHeader.nExtGeoSize, 316 );
+        }
+
         CPLFree( pabyExtHeader );
+    }
+
+/* -------------------------------------------------------------------- */
+/*  Read the extended geotransform header.                             */
+/* -------------------------------------------------------------------- */
+
+    if(poDS->sExtHeader.nExtGeoOffset && poDS->sExtHeader.nExtGeoSize)
+    {
+        if(poDS->sExtHeader.nExtGeoSize > 1000000)
+        {
+            delete poDS;
+            return nullptr;
+        }
+        GByte *pabyGeoHeader = reinterpret_cast<GByte *>(
+            VSICalloc(poDS->sExtHeader.nExtGeoSize, 1));
+        if(pabyGeoHeader == nullptr)
+        {
+            delete poDS;
+            return nullptr;
+        }
+
+        VSIFSeekL(poDS->fp, poDS->GetFileOffset(poDS->sExtHeader.nExtGeoOffset),
+                   SEEK_SET );
+        VSIFReadL(pabyGeoHeader, 1, poDS->sExtHeader.nExtGeoSize, poDS->fp );
+
+        if(poDS->sExtHeader.nExtGeoSize >=
+           48 + sizeof(double) * RMF_EXT_GEOTRANSFORM_LEN &&
+           memcmp(pabyGeoHeader, RMF_SigExtGeo, RMF_SIGNATURE_SIZE) == 0)
+        {
+            memcpy(poDS->sExtGeoHeader.byGeoSignature,
+                   pabyGeoHeader, RMF_SIGNATURE_SIZE);
+            RMF_READ_LONG(pabyGeoHeader, poDS->sExtGeoHeader.nSize, 4);
+            RMF_READ_LONG(pabyGeoHeader, poDS->sExtGeoHeader.iGeoType, 12);
+            if(poDS->sExtGeoHeader.iGeoType == RMF_EXT_GEOTRANSFORM_MATRIX)
+            {
+                for(size_t n = 0; n != RMF_EXT_GEOTRANSFORM_LEN; ++n)
+                {
+                    RMF_READ_DOUBLE(pabyGeoHeader,
+                                    poDS->sExtGeoHeader.adfGeoTransform[n],
+                                    48 + n * sizeof(double));
+                }
+            }
+        }
+
+        VSIFree(pabyGeoHeader);
     }
 
 #undef RMF_READ_DOUBLE
@@ -1854,8 +1977,14 @@ do {                                                                    \
 /* -------------------------------------------------------------------- */
 /*  Set up georeferencing.                                              */
 /* -------------------------------------------------------------------- */
-    if( (poDS->eRMFType == RMFT_RSW && poDS->sHeader.iGeorefFlag) ||
-        (poDS->eRMFType == RMFT_MTW && poDS->sHeader.dfPixelSize != 0.0) )
+    if(poDS->sExtGeoHeader.nSize >= RMF_EXT_GEO_HEADER_SIZE &&
+       poDS->sExtGeoHeader.iGeoType == RMF_EXT_GEOTRANSFORM_MATRIX)
+    {
+        memcpy(poDS->adfGeoTransform, poDS->sExtGeoHeader.adfGeoTransform,
+               sizeof(double) * RMF_EXT_GEOTRANSFORM_LEN);
+    }
+    else if((poDS->eRMFType == RMFT_RSW && poDS->sHeader.iGeorefFlag) ||
+            (poDS->eRMFType == RMFT_MTW && poDS->sHeader.dfPixelSize != 0.0) )
     {
         poDS->adfGeoTransform[0] = poDS->sHeader.dfLLX;
         poDS->adfGeoTransform[3] = poDS->sHeader.dfLLY
@@ -2041,6 +2170,9 @@ GDALDataset *RMFDataset::Create( const char * pszFilename,
             memcpy( poDS->sHeader.bySignature, RMF_SigRSW, RMF_SIGNATURE_SIZE );
         poDS->sHeader.iVersion = iVersion;
         poDS->sHeader.nOvrOffset = 0x00;
+
+        memcpy(poDS->sExtGeoHeader.byGeoSignature,
+               RMF_SigExtGeo, RMF_SIGNATURE_SIZE);
     }
     else
     {
@@ -2100,6 +2232,12 @@ GDALDataset *RMFDataset::Create( const char * pszFilename,
     poDS->sHeader.nExtHdrOffset = poDS->GetRMFOffset( nCurPtr, &nCurPtr );
     poDS->sHeader.nExtHdrSize = RMF_EXT_HEADER_SIZE;
     nCurPtr += poDS->sHeader.nExtHdrSize;
+
+    // Extended geotransform header
+    poDS->sExtHeader.nExtGeoOffset = poDS->GetRMFOffset( nCurPtr, &nCurPtr );
+    poDS->sExtHeader.nExtGeoSize = RMF_EXT_GEO_HEADER_SIZE;
+    poDS->sExtGeoHeader.nSize = RMF_EXT_GEO_HEADER_SIZE;
+    nCurPtr += poDS->sExtHeader.nExtGeoSize;
 
     // Color table
     if( poDS->eRMFType == RMFT_RSW && nBands == 1 )
@@ -2559,6 +2697,9 @@ vsi_l_offset RMFDataset::GetLastOffset() const
     nLastTileOff = std::max( nLastTileOff,
                              GetFileOffset( sHeader.nExtHdrOffset ) +
                              sHeader.nExtHdrSize );
+    nLastTileOff = std::max( nLastTileOff,
+                             GetFileOffset( sExtHeader.nExtGeoOffset ) +
+                             sExtHeader.nExtGeoSize );
     return nLastTileOff;
 }
 
