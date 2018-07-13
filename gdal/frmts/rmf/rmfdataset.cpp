@@ -2800,7 +2800,7 @@ CPLErr RMFDataset::InitCompressorData(char **papszParmList)
 
     poCompressData->asJobs.resize(nThreads + 1);
 
-    size_t nMaxTileBytes = sHeader.nWidth * sHeader.nHeight *
+    size_t nMaxTileBytes = sHeader.nTileWidth * sHeader.nTileHeight *
                            sHeader.nBitDepth / 8;
     size_t nCompressBufferSize =
                            2 * nMaxTileBytes * poCompressData->asJobs.size();
