@@ -1595,6 +1595,8 @@ do {                                                                    \
     for( int iBand = 1; iBand <= poDS->nBands; iBand++ )
         poDS->SetBand( iBand, new RMFRasterBand( poDS, iBand, eType ) );
 
+    poDS->SetupNBits();
+
     if(poDS->nBands > 1)
     {
         poDS->SetMetadataItem("INTERLEAVE", "PIXEL", "IMAGE_STRUCTURE");
@@ -2060,6 +2062,8 @@ GDALDataset *RMFDataset::Create( const char * pszFilename,
 /* -------------------------------------------------------------------- */
     for( int iBand = 1; iBand <= poDS->nBands; iBand++ )
         poDS->SetBand( iBand, new RMFRasterBand( poDS, iBand, eType ) );
+
+    poDS->SetupNBits();
 
     return reinterpret_cast<GDALDataset *>( poDS );
 }
@@ -2928,6 +2932,31 @@ CPLErr RMFDataset::ReadTile(int nBlockXOff, int nBlockYOff,
     // We don't need to swap bytes here,
     // because decompressed data is in proper byte order
     return CE_None;
+}
+
+void RMFDataset::SetupNBits()
+{
+    int nBitDepth = 0;
+    if(sHeader.nBitDepth < 8 && nBands == 1)
+    {
+        nBitDepth = static_cast<int>(sHeader.nBitDepth);
+    }
+    else
+    if(sHeader.nBitDepth == 16 && nBands == 3 && eRMFType == RMFT_RSW )
+    {
+        nBitDepth = 5;
+    }
+
+    if(nBitDepth > 0)
+    {
+        char szNBits[32] = {};
+        snprintf(szNBits, sizeof(szNBits), "%d", nBitDepth);
+        for(int iBand = 1; iBand <= nBands; iBand++)
+        {
+            GetRasterBand(iBand)->SetMetadataItem("NBITS", szNBits,
+                                                  "IMAGE_STRUCTURE");
+        }
+    }
 }
 
 /************************************************************************/
