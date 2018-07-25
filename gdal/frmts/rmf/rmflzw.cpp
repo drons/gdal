@@ -49,14 +49,14 @@
 
 #include "rmfdataset.h"
 
-CPL_CVSID("$Id$");
+CPL_CVSID("$Id$")
 
 // Code marks that there is no predecessor in the string
-static const GUInt32 NO_PRED = 0xFFFF;
+constexpr GUInt32 NO_PRED = 0xFFFF;
 
 // We are using 12-bit codes in this particular implementation
-static const GUInt32 TABSIZE = 4096U;
-static const GUInt32 STACKSIZE = TABSIZE;
+constexpr GUInt32 TABSIZE = 4096U;
+constexpr GUInt32 STACKSIZE = TABSIZE;
 
 constexpr GUInt32 NOT_FND = 0xFFFF;
 

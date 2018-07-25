@@ -6,6 +6,7 @@ OBJ	=	rmfdataset.o rmflzw.o rmfdem.o rmfjpeg.o
 ifneq ($(JPEG_SETTING),no)
 CPPFLAGS 	:=	$(CPPFLAGS) -DHAVE_LIBJPEG
 endif
+CPPFLAGS 	:=	$(CPPFLAGS) -std=c++11
 
 default:	$(OBJ:.o=.$(OBJ_EXT))
 
