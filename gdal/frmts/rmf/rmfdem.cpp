@@ -88,7 +88,7 @@ GInt32 OUT_INT16 = 0xFFFF8000;
 GInt32 OUT_INT24 = 0xFF800000;
 GInt32 OUT_INT32 = 0x80000000;
 
-constexpr DEMDiffT DIFF_OUI_OF_RANGE = std::numeric_limits<DEMDiffT>::max();
+static const DEMDiffT DIFF_OUI_OF_RANGE = std::numeric_limits<DEMDiffT>::max();
 
 // Inversion masks
 GInt32 INV_INT4  = 0xFFFFFFF0L;

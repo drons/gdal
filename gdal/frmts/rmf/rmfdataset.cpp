@@ -36,8 +36,8 @@
 
 CPL_CVSID("$Id$")
 
-constexpr int RMF_DEFAULT_BLOCKXSIZE = 256;
-constexpr int RMF_DEFAULT_BLOCKYSIZE = 256;
+static const int RMF_DEFAULT_BLOCKXSIZE = 256;
+static const int RMF_DEFAULT_BLOCKYSIZE = 256;
 
 static const char RMF_SigRSW[] = { 'R', 'S', 'W', '\0' };
 static const char RMF_SigRSW_BE[] = { '\0', 'W', 'S', 'R' };
@@ -49,8 +49,8 @@ static const char RMF_UnitsCM[] = "cm";
 static const char RMF_UnitsDM[] = "dm";
 static const char RMF_UnitsMM[] = "mm";
 
-constexpr double RMF_DEFAULT_SCALE = 10000.0;
-constexpr double RMF_DEFAULT_RESOLUTION = 100.0;
+static const double RMF_DEFAULT_SCALE = 10000.0;
+static const double RMF_DEFAULT_RESOLUTION = 100.0;
 
 /* -------------------------------------------------------------------- */
 /*  Note: Due to the fact that in the early versions of RMF             */
@@ -62,7 +62,7 @@ constexpr double RMF_DEFAULT_RESOLUTION = 100.0;
 /*       Using the EPSG Geodetic Parameter Dataset p. 22                */
 /*       http://www.epsg.org/Portals/0/373-07-1.pdf                     */
 /* -------------------------------------------------------------------- */
-constexpr GInt32 RMF_EPSG_MIN_CODE = 1024;
+static const GInt32 RMF_EPSG_MIN_CODE = 1024;
 
 static char* RMFUnitTypeToStr( GUInt32 iElevationUnit )
 {
@@ -3076,9 +3076,11 @@ void GDALRegister_RMF()
 /*                            RMFCompressData                           */
 /************************************************************************/
 
-RMFCompressData::RMFCompressData():
-    pabyBuffers(nullptr)
+RMFCompressData::RMFCompressData()
 {
+    pabyBuffers = nullptr;
+    hReadyJobMutex = nullptr;
+    hWriteTileMutex = nullptr;
 }
 
 RMFCompressData::~RMFCompressData()
@@ -3097,4 +3099,10 @@ RMFCompressData::~RMFCompressData()
     {
         CPLDestroyMutex(hReadyJobMutex);
     }
+}
+
+
+RMFTileData::RMFTileData()
+{
+    nBandsWritten = 0;
 }

@@ -139,19 +139,32 @@ typedef struct
 /*                            RMFCompressionJob                         */
 /************************************************************************/
 
-typedef struct
+struct RMFCompressionJob
 {
-    RMFDataset* poDS = nullptr;
-    CPLErr eResult = CE_None;
-    int nBlockXOff = -1;
-    int nBlockYOff = -1;
-    GByte* pabyUncompressedData = nullptr;
-    size_t nUncompressedBytes = 0;
-    GByte* pabyCompressedData = nullptr;
-    size_t nCompressedBytes = 0;
-    GUInt32 nXSize = 0;
-    GUInt32 nYSize = 0;
-} RMFCompressionJob;
+    RMFDataset* poDS;
+    CPLErr eResult;
+    int nBlockXOff;
+    int nBlockYOff;
+    GByte* pabyUncompressedData;
+    size_t nUncompressedBytes;
+    GByte* pabyCompressedData;
+    size_t nCompressedBytes;
+    GUInt32 nXSize;
+    GUInt32 nYSize;
+    RMFCompressionJob()
+    {
+        poDS = nullptr;
+        eResult = CE_None;
+        nBlockXOff = -1;
+        nBlockYOff = -1;
+        pabyUncompressedData = nullptr;
+        nUncompressedBytes = 0;
+        pabyCompressedData = nullptr;
+        nCompressedBytes = 0;
+        nXSize = 0;
+        nYSize = 0;
+    }
+};
 
 /************************************************************************/
 /*                            RMFCompressData                           */
@@ -162,12 +175,9 @@ struct RMFCompressData
     CPLWorkerThreadPool                  oThreadPool;
     std::vector<RMFCompressionJob>       asJobs;
     std::list<RMFCompressionJob*>        asReadyJobs;
-    GByte                               *pabyBuffers = nullptr;
-    CPLMutex                            *hReadyJobMutex = nullptr;
-    CPLMutex                            *hWriteTileMutex = nullptr;
-
-    RMFCompressData(const RMFCompressData&) = delete;
-    RMFCompressData& operator=(const RMFCompressData&) = delete;
+    GByte                               *pabyBuffers;
+    CPLMutex                            *hReadyJobMutex;
+    CPLMutex                            *hWriteTileMutex;
 
     RMFCompressData();
     ~RMFCompressData();
@@ -177,11 +187,12 @@ struct RMFCompressData
 /*                            RMFTileData                               */
 /************************************************************************/
 
-typedef struct
+struct RMFTileData
 {
     std::vector<GByte>  oData;
-    int                 nBandsWritten = 0;
-} RMFTileData;
+    int                 nBandsWritten;
+    RMFTileData();
+};
 
 /************************************************************************/
 /*                              RMFDataset                              */
